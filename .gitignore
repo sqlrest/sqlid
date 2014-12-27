@@ -1,0 +1,7 @@
+*.pyc
+.DS_Store
+.hg/
+.hgignore
+bin/
+lib/
+target/
