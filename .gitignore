@@ -1,0 +1,19 @@
+# Go
+/bin/
+*.out
+coverage.txt
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Tooling
+dist/
+
+# OS
+.DS_Store

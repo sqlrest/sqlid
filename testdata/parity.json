@@ -1,0 +1,162 @@
+[
+  {
+    "input": "select 1",
+    "normalized": "select ? ",
+    "id": "dmrrk1sbj01z",
+    "hash": 1891139647,
+    "raw_id": "y30pf6xwqt3x",
+    "raw_hash": 3150668925
+  },
+  {
+    "input": "select * from table",
+    "normalized": "select * from table\n",
+    "id": "a9gnvmwggv315",
+    "hash": 519932965,
+    "raw_id": "9nq4tw9gnts86",
+    "raw_hash": 1598873862
+  },
+  {
+    "input": "SELECT   *   FROM Users WHERE Id = 5 ;",
+    "normalized": "select * from users where id = ? ",
+    "id": "6vz9cxftqu9z6",
+    "hash": 3010275302,
+    "raw_id": "nc117jbq5uvs",
+    "raw_hash": 1466100600
+  },
+  {
+    "input": "/* leading */ select a from t",
+    "normalized": "select a from t\n",
+    "id": "63vrjunw2g1tn",
+    "hash": 942114612,
+    "raw_id": "5a858028ffcw0",
+    "raw_hash": 2431071104
+  },
+  {
+    "input": "/*+ full(t) */ select a from t",
+    "normalized": "/*+ full(t) */ select a from t\n",
+    "id": "2n2ap2jjx9uka",
+    "hash": 1674897994,
+    "raw_id": "g44j8gc3yjpc1",
+    "raw_hash": 132699521
+  },
+  {
+    "input": "select count(*) from (select x from y) z",
+    "normalized": "select count(*) from (select x from y) z\n",
+    "id": "78ggudk4d7nbz",
+    "hash": 2295583103,
+    "raw_id": "67m67hknq97y3",
+    "raw_hash": 2841944003
+  },
+  {
+    "input": "with a as (select 1), b as (select 2) select * from a, b",
+    "normalized": "with ^0001^ as (select 1), ^0002^ as (select 2) select * from a, b\n",
+    "id": "d2pwc8uht6bj7",
+    "hash": 2710777383,
+    "raw_id": "88ha8aqvvyt9z",
+    "raw_hash": 3082773823
+  },
+  {
+    "input": "WITH cte AS (SELECT id FROM t WHERE n = 10) SELECT * FROM cte",
+    "normalized": "with ^0001^ as (select id from t where n = 10) select * from cte\n",
+    "id": "406308v4v4y57",
+    "hash": 3383916711,
+    "raw_id": "a9c0qca0vv67g",
+    "raw_hash": 2176686319
+  },
+  {
+    "input": "select name from emp where name = 'OReilly'",
+    "normalized": "select name from emp where name = ?\n",
+    "id": "57thwcrzqsnwc",
+    "hash": 4285289356,
+    "raw_id": "3kd0hwgh750c8",
+    "raw_hash": 3765600648
+  },
+  {
+    "input": "select * from t where note = 'it''s fine'",
+    "normalized": "select * from t where note = ?\n",
+    "id": "4ft8dxgg0wca5",
+    "hash": 3725472069,
+    "raw_id": "cmspqzxajrz57",
+    "raw_hash": 1427897511
+  },
+  {
+    "input": "insert into t (a, b) values (1, 2)",
+    "normalized": "insert into t (a, b) values (1, 2)\n",
+    "id": "32p3d2yym68kv",
+    "hash": 3174244955,
+    "raw_id": "8nya62gadgd7p",
+    "raw_hash": 3570906357
+  },
+  {
+    "input": "update t set x = 5 where id = 99",
+    "normalized": "update t set x = ? where id = ? ",
+    "id": "cqat5kug8anad",
+    "hash": 2659537229,
+    "raw_id": "3kdcmkd6j4qy8",
+    "raw_hash": 1293048776
+  },
+  {
+    "input": "select\n  a,\n  b\nfrom\n  t",
+    "normalized": "select a, b from t\n",
+    "id": "42dyy04azq7pv",
+    "hash": 368778939,
+    "raw_id": "34zpxdq1xm6q6",
+    "raw_hash": 2212076230
+  },
+  {
+    "input": "select 42 + 7 from dual",
+    "normalized": "select ? + ? from dual\n",
+    "id": "1mx314yqrwnf7",
+    "hash": 2910736839,
+    "raw_id": "9ssvjtq44392",
+    "raw_hash": 1816268066
+  },
+  {
+    "input": "select * from a join b on a.id = b.id where a.k = 'v' and a.n = 3",
+    "normalized": "select * from a join b on a.id = b.id where a.k = ? and a.n = ? ",
+    "id": "ftckjadsj18an",
+    "hash": 1896915284,
+    "raw_id": "9bgby84b5jgjc",
+    "raw_hash": 374914604
+  },
+  {
+    "input": "  select   trim( name )  from   t  ;  ",
+    "normalized": "select trim( name ) from t\n",
+    "id": "gx14r15a967nn",
+    "hash": 1418927764,
+    "raw_id": "4tcqjc7j8n1q9",
+    "raw_hash": 3800696521
+  },
+  {
+    "input": "with x as (select 1 from (select 2) inner_q) select * from x",
+    "normalized": "with ^0001^ as (select ? from (select 2) inner_q) select * from x\n",
+    "id": "21ksc8xck3wmn",
+    "hash": 1495396980,
+    "raw_id": "c56653kwsbgxp",
+    "raw_hash": 3112550325
+  },
+  {
+    "input": "select /* c1 */ a, /* c2 */ b from t",
+    "normalized": "select a, b from t\n",
+    "id": "42dyy04azq7pv",
+    "hash": 368778939,
+    "raw_id": "a5ws0wzrhd26v",
+    "raw_hash": 4010182875
+  },
+  {
+    "input": "select * from t",
+    "normalized": "select * from t\n",
+    "id": "ckzaraqcmkr2f",
+    "hash": 2570673230,
+    "raw_id": "89km4qj1thh13",
+    "raw_hash": 1134051363
+  },
+  {
+    "input": "SELECT * FROM T",
+    "normalized": "select * from t\n",
+    "id": "ckzaraqcmkr2f",
+    "hash": 2570673230,
+    "raw_id": "6k1fc899x4ud2",
+    "raw_hash": 1406298530
+  }
+]
