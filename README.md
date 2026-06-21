@@ -1,5 +1,7 @@
 # sqlid
 
+[![CI](https://github.com/sqlrest/sqlid/actions/workflows/ci.yml/badge.svg)](https://github.com/sqlrest/sqlid/actions/workflows/ci.yml) [![Go Report Card](https://goreportcard.com/badge/github.com/sqlrest/sqlid)](https://goreportcard.com/report/github.com/sqlrest/sqlid) [![Release](https://img.shields.io/github/v/release/sqlrest/sqlid)](https://github.com/sqlrest/sqlid/releases/latest)
+
 Compute an Oracle-style **SQL ID** that identifies the *same* SQL statement across processes — regardless of `WITH`-clause aliases and literal constants.
 
 The algorithm mirrors Oracle's `SQL_ID`: MD5 the statement text (with a trailing NUL byte), read the last 8 bytes of the digest as a 64-bit little-endian integer, then base-32 encode it with Oracle's alphabet (`0123456789abcdfghjkmnpqrstuvwxyz`). It makes no attempt to reproduce any specific database's `SQL_ID` value; its purpose is deterministic, normalization-aware identification — two statements that differ only in CTE alias names, literal values, comments, case, or whitespace collapse to the same ID.
