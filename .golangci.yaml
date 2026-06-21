@@ -22,7 +22,7 @@ linters:
     - gocognit  # cognitive complexity — how hard a function is to read
   settings:
     gocognit:
-      min-complexity: 30
+      min-complexity: 7
   exclusions:
     generated: lax
     # Complexity is gated on PRODUCTION code only — matching the repos' original
