@@ -5,12 +5,14 @@
 // by comparing strings.
 package constants
 
+import errs "github.com/gomatic/go-error"
+
 // Keep these constants sorted alphabetically.
 const (
 	// ErrReadFile is returned when an input file cannot be read.
-	ErrReadFile Error = "reading input file failed"
+	ErrReadFile errs.Const = "reading input file failed"
 	// ErrReadStdin is returned when standard input cannot be read.
-	ErrReadStdin Error = "reading standard input failed"
+	ErrReadStdin errs.Const = "reading standard input failed"
 	// ErrWriteFile is returned when the output file cannot be written.
-	ErrWriteFile Error = "writing output file failed"
+	ErrWriteFile errs.Const = "writing output file failed"
 )
