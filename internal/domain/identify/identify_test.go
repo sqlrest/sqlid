@@ -24,25 +24,103 @@ func empty() io.Reader { return strings.NewReader("") }
 
 func TestRunOutputModes(t *testing.T) {
 	cases := []struct {
-		name  string
-		cfg   Config
-		args  []string
 		stdin io.Reader
+		name  string
 		want  string
+		args  []string
+		cfg   Config
 	}{
-		{"default literal", Config{}, []string{"select 1"}, empty(), wantID + " " + wantHash + " arg[0]\n"},
-		{"stdin is bare", Config{UseStdin: true}, nil, strings.NewReader("select 1"), wantID + " " + wantHash + "\n"},
-		{"id only", Config{Output: Output{IDOnly: true}}, []string{"select 1"}, empty(), wantID + " arg[0]\n"},
-		{"hash only", Config{Output: Output{HashOnly: true}}, []string{"select 1"}, empty(), wantHash + " arg[0]\n"},
-		{"id only stdin bare", Config{UseStdin: true, Output: Output{IDOnly: true}}, nil, strings.NewReader("select 1"), wantID + "\n"},
-		{"hash only stdin bare", Config{UseStdin: true, Output: Output{HashOnly: true}}, nil, strings.NewReader("select 1"), wantHash + "\n"},
-		{"no name", Config{Output: Output{NoName: true}}, []string{"select 1"}, empty(), wantID + " " + wantHash + " \n"},
-		{"verbose", Config{Output: Output{Verbose: true}}, []string{"select 1"}, empty(), wantID + " " + wantHash + " arg[0] select ? \n"},
-		{"tabs", Config{Output: Output{Tabs: true}}, []string{"select 1"}, empty(), wantID + "\t" + wantHash + "\targ[0]\n"},
-		{"format literal and fields", Config{Output: Output{Format: "i:s", HasFormat: true}}, []string{"select 1"}, empty(), wantID + ":select 1\n"},
-		{"format hash name", Config{Output: Output{Format: "h n", HasFormat: true}}, []string{"select 1"}, empty(), wantHash + " arg[0]\n"},
-		{"format normalized", Config{Output: Output{Format: "q", HasFormat: true}}, []string{"select 1"}, empty(), "select ? \n"},
-		{"blank input skipped", Config{}, []string{"   ", "select 1"}, empty(), wantID + " " + wantHash + " arg[1]\n"},
+		{
+			name:  "default literal",
+			cfg:   Config{},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantID + " " + wantHash + " arg[0]\n",
+		},
+		{
+			name:  "stdin is bare",
+			cfg:   Config{UseStdin: true},
+			args:  nil,
+			stdin: strings.NewReader("select 1"),
+			want:  wantID + " " + wantHash + "\n",
+		},
+		{
+			name:  "id only",
+			cfg:   Config{Output: Output{IDOnly: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantID + " arg[0]\n",
+		},
+		{
+			name:  "hash only",
+			cfg:   Config{Output: Output{HashOnly: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantHash + " arg[0]\n",
+		},
+		{
+			name:  "id only stdin bare",
+			cfg:   Config{UseStdin: true, Output: Output{IDOnly: true}},
+			args:  nil,
+			stdin: strings.NewReader("select 1"),
+			want:  wantID + "\n",
+		},
+		{
+			name:  "hash only stdin bare",
+			cfg:   Config{UseStdin: true, Output: Output{HashOnly: true}},
+			args:  nil,
+			stdin: strings.NewReader("select 1"),
+			want:  wantHash + "\n",
+		},
+		{
+			name:  "no name",
+			cfg:   Config{Output: Output{NoName: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantID + " " + wantHash + " \n",
+		},
+		{
+			name:  "verbose",
+			cfg:   Config{Output: Output{Verbose: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantID + " " + wantHash + " arg[0] select ? \n",
+		},
+		{
+			name:  "tabs",
+			cfg:   Config{Output: Output{Tabs: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantID + "\t" + wantHash + "\targ[0]\n",
+		},
+		{
+			name:  "format literal and fields",
+			cfg:   Config{Output: Output{Format: "i:s", HasFormat: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantID + ":select 1\n",
+		},
+		{
+			name:  "format hash name",
+			cfg:   Config{Output: Output{Format: "h n", HasFormat: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  wantHash + " arg[0]\n",
+		},
+		{
+			name:  "format normalized",
+			cfg:   Config{Output: Output{Format: "q", HasFormat: true}},
+			args:  []string{"select 1"},
+			stdin: empty(),
+			want:  "select ? \n",
+		},
+		{
+			name:  "blank input skipped",
+			cfg:   Config{},
+			args:  []string{"   ", "select 1"},
+			stdin: empty(),
+			want:  wantID + " " + wantHash + " arg[1]\n",
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

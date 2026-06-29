@@ -76,10 +76,10 @@ func renameWithAliases(s Statement) Statement {
 // while tracking parenthesis depth and skipping quoted regions. It is a pointer
 // receiver because it is mutable parser state advanced character by character.
 type scan struct {
+	segs  []string
 	depth int
 	start int
 	quote byte
-	segs  []string
 }
 
 // inQuote reports whether the current character lies inside a quoted region,

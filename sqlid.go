@@ -17,8 +17,8 @@ import (
 // Statement is SQL statement text to be identified.
 type Statement string
 
-// Id is a base-32 SQL identifier.
-type Id string
+// ID is a base-32 SQL identifier.
+type ID string
 
 // Hash is the 32-bit SQL hash derived from a statement's digest.
 type Hash uint32
@@ -32,15 +32,15 @@ const radix = 32
 
 // words returns the third and fourth little-endian 32-bit words of the
 // statement's MD5 digest (after appending the trailing NUL byte).
-func (s Statement) words() (most uint32, least uint32) {
+func (s Statement) words() (most, least uint32) {
 	sum := md5.Sum(append([]byte(s), 0))
 	return binary.LittleEndian.Uint32(sum[8:12]), binary.LittleEndian.Uint32(sum[12:16])
 }
 
 // base32 encodes value with alphabet, most significant digit first.
-func base32(value uint64) Id {
+func base32(value uint64) ID {
 	if value == 0 {
-		return Id(alphabet[:1])
+		return ID(alphabet[:1])
 	}
 	width := int(math.Log(float64(value))/math.Log(radix) + 1)
 	out := make([]byte, width)
@@ -49,30 +49,30 @@ func base32(value uint64) Id {
 		out[width-1-i] = alphabet[(value/power)%radix]
 		power *= radix
 	}
-	return Id(out)
+	return ID(out)
 }
 
-// SQLIdRaw returns the SQL ID of the statement exactly as given, without
+// SQLRawID returns the SQL ID of the statement exactly as given, without
 // normalization.
-func SQLIdRaw(s Statement) Id {
+func SQLRawID(s Statement) ID {
 	most, least := s.words()
 	return base32(uint64(most)<<32 | uint64(least))
 }
 
-// SQLHashRaw returns the SQL hash of the statement exactly as given, without
+// SQLRawHash returns the SQL hash of the statement exactly as given, without
 // normalization.
-func SQLHashRaw(s Statement) Hash {
+func SQLRawHash(s Statement) Hash {
 	_, least := s.words()
 	return Hash(least)
 }
 
-// SQLId normalizes the statement with the given options and returns its SQL ID.
-func SQLId(s Statement, options ...Option) Id {
-	return SQLIdRaw(Normalize(s, options...))
+// SQLID normalizes the statement with the given options and returns its SQL ID.
+func SQLID(s Statement, options ...Option) ID {
+	return SQLRawID(Normalize(s, options...))
 }
 
 // SQLHash normalizes the statement with the given options and returns its SQL
 // hash.
 func SQLHash(s Statement, options ...Option) Hash {
-	return SQLHashRaw(Normalize(s, options...))
+	return SQLRawHash(Normalize(s, options...))
 }

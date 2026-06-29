@@ -28,9 +28,9 @@ type FileSystem struct {
 
 // Output captures the selected output mode.
 type Output struct {
+	Format    string
 	IDOnly    bool
 	HashOnly  bool
-	Format    string
 	HasFormat bool
 	Tabs      bool
 	Verbose   bool
@@ -41,6 +41,7 @@ type Output struct {
 // toggles (negated flags), the output mode, and whether standard input should
 // be read.
 type Config struct {
+	Output      Output
 	KeepCase    bool
 	NoUncomment bool
 	NoCompress  bool
@@ -48,7 +49,6 @@ type Config struct {
 	KeepWith    bool
 	KeepConst   bool
 	Semicolon   bool
-	Output      Output
 	UseStdin    bool
 }
 
@@ -56,7 +56,7 @@ type Config struct {
 func (c Config) options() []sqlid.Option {
 	return []sqlid.Option{
 		sqlid.Lowercase(!c.KeepCase),
-		sqlid.Uncomment(!(c.NoUncomment || c.NoCompress)),
+		sqlid.Uncomment(!c.NoUncomment && !c.NoCompress),
 		sqlid.StripSemicolon(!c.Semicolon),
 		sqlid.Compress(!c.NoCompress),
 		sqlid.Newline(!c.NoNewline),
@@ -74,11 +74,11 @@ type statement struct {
 
 // result holds the computed fields available to the output formatters.
 type result struct {
-	id         sqlid.Id
-	hash       sqlid.Hash
+	id         sqlid.ID
 	name       string
 	normalized sqlid.Statement
 	original   sqlid.Statement
+	hash       sqlid.Hash
 }
 
 // fromArg resolves a positional argument to a file's contents or a literal SQL
@@ -122,8 +122,8 @@ func compute(in statement, opts []sqlid.Option, noName bool) result {
 		name = ""
 	}
 	return result{
-		id:         sqlid.SQLIdRaw(normalized),
-		hash:       sqlid.SQLHashRaw(normalized),
+		id:         sqlid.SQLRawID(normalized),
+		hash:       sqlid.SQLRawHash(normalized),
 		name:       name,
 		normalized: normalized,
 		original:   in.sql,
@@ -153,7 +153,8 @@ func formatLine(template string, r result) string {
 	template = strings.ReplaceAll(template, `\t`, "\t")
 	var b strings.Builder
 	for _, char := range template {
-		b.WriteString(field(char, r))
+		// strings.Builder.WriteString never returns a non-nil error.
+		_, _ = b.WriteString(field(char, r))
 	}
 	return b.String()
 }
@@ -219,8 +220,9 @@ func render(statements []statement, opts []sqlid.Option, o Output) []string {
 func join(lines []string) string {
 	var b strings.Builder
 	for _, l := range lines {
-		b.WriteString(l)
-		b.WriteByte('\n')
+		// strings.Builder writes never return a non-nil error.
+		_, _ = b.WriteString(l)
+		_ = b.WriteByte('\n')
 	}
 	return b.String()
 }

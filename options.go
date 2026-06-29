@@ -27,20 +27,20 @@ func defaults() config {
 
 // step is one normalization stage together with whether it is enabled.
 type step struct {
-	enabled bool
 	fn      transform
+	enabled bool
 }
 
 // steps returns the ordered pipeline for the configuration.
 func (c config) steps() []step {
 	return []step{
-		{c.lowercase, lower},
-		{c.uncomment, uncomment},
-		{c.stripSemicolon, stripSemicolon},
-		{c.compress, collapse},
-		{c.newline, appendNewline},
-		{c.rewriteWith, renameWithAliases},
-		{c.stripConstants, stripConstants},
+		{enabled: c.lowercase, fn: lower},
+		{enabled: c.uncomment, fn: uncomment},
+		{enabled: c.stripSemicolon, fn: stripSemicolon},
+		{enabled: c.compress, fn: collapse},
+		{enabled: c.newline, fn: appendNewline},
+		{enabled: c.rewriteWith, fn: renameWithAliases},
+		{enabled: c.stripConstants, fn: stripConstants},
 	}
 }
 

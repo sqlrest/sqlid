@@ -11,9 +11,9 @@ import (
 type parityRow struct {
 	Input      Statement `json:"input"`
 	Normalized Statement `json:"normalized"`
-	Id         Id        `json:"id"`
+	ID         ID        `json:"id"`
+	RawID      ID        `json:"raw_id"`
 	Hash       Hash      `json:"hash"`
-	RawId      Id        `json:"raw_id"`
 	RawHash    Hash      `json:"raw_hash"`
 }
 
@@ -38,17 +38,17 @@ func TestParityWithPython(t *testing.T) {
 			if got := Normalize(row.Input); got != row.Normalized {
 				t.Errorf("Normalize = %q, want %q", got, row.Normalized)
 			}
-			if got := SQLId(row.Input); got != row.Id {
-				t.Errorf("SQLId = %q, want %q", got, row.Id)
+			if got := SQLID(row.Input); got != row.ID {
+				t.Errorf("SQLID = %q, want %q", got, row.ID)
 			}
 			if got := SQLHash(row.Input); got != row.Hash {
 				t.Errorf("SQLHash = %d, want %d", got, row.Hash)
 			}
-			if got := SQLIdRaw(row.Input); got != row.RawId {
-				t.Errorf("SQLIdRaw = %q, want %q", got, row.RawId)
+			if got := SQLRawID(row.Input); got != row.RawID {
+				t.Errorf("SQLRawID = %q, want %q", got, row.RawID)
 			}
-			if got := SQLHashRaw(row.Input); got != row.RawHash {
-				t.Errorf("SQLHashRaw = %d, want %d", got, row.RawHash)
+			if got := SQLRawHash(row.Input); got != row.RawHash {
+				t.Errorf("SQLRawHash = %d, want %d", got, row.RawHash)
 			}
 		})
 	}

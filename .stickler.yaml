@@ -1,0 +1,15 @@
+# Per-repo lint delta, deep-merged onto the distribute-owned .golangci.yaml.
+#
+# sqlid computes the Oracle-style SQL_ID, which is *defined* as the MD5 digest of
+# the statement text (see sqlid.go). MD5 here is a non-cryptographic content
+# fingerprint — never used for passwords, signatures, or integrity against an
+# adversary — and the algorithm is fixed by the Oracle spec and the Python parity
+# corpus, so it cannot be swapped for a stronger hash without breaking the
+# contract. gosec G501 (blocklisted crypto/md5 import) and G401 (weak crypto
+# primitive) are therefore genuine false-positives in this non-security context.
+config:
+  golangci-lint:
+    linters:
+      settings:
+        gosec:
+          excludes: { add: [G401, G501] }

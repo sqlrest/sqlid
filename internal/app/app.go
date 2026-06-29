@@ -13,11 +13,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/sqlrest/sqlid/internal/constants"
-	"github.com/sqlrest/sqlid/internal/domain/identify"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
+
+	"github.com/sqlrest/sqlid/internal/constants"
+	"github.com/sqlrest/sqlid/internal/domain/identify"
 )
+
+// name is the command's program name, used for the CLI command and argv[0].
+const name = "sqlid"
 
 func flags() []cli.Flag {
 	return []cli.Flag{
@@ -84,8 +88,8 @@ func execute(cmd *cli.Command, filesys identify.FileSystem, stdin io.Reader, std
 		return err
 	}
 	if path := cmd.String("output"); path != "" {
-		if err := os.WriteFile(path, []byte(text), 0o644); err != nil {
-			return constants.ErrWriteFile.With(nil, path)
+		if writeErr := os.WriteFile(path, []byte(text), 0o600); writeErr != nil {
+			return constants.ErrWriteFile.With(writeErr, path)
 		}
 		return nil
 	}
@@ -96,7 +100,7 @@ func execute(cmd *cli.Command, filesys identify.FileSystem, stdin io.Reader, std
 // command builds the sqlid command wired to the given streams.
 func command(stdin io.Reader, stdout, stderr io.Writer) *cli.Command {
 	return &cli.Command{
-		Name:           "sqlid",
+		Name:           name,
 		Usage:          "Calculate the SQL ID and SQL hash of each SQL statement",
 		ArgsUsage:      "[SQL|FILE]...",
 		Flags:          flags(),
@@ -114,7 +118,7 @@ func command(stdin io.Reader, stdout, stderr io.Writer) *cli.Command {
 // the process exit code.
 func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if err := command(stdin, stdout, stderr).Run(ctx, args); err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	return 0

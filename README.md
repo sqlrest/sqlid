@@ -25,15 +25,15 @@ make build   # produces bin/sqlid
 ```go
 import "github.com/sqlrest/sqlid"
 
-id := sqlid.SQLId("select 1")                 // normalized SQL ID
+id := sqlid.SQLID("select 1")                 // normalized SQL ID
 h := sqlid.SQLHash("select 1")                // normalized SQL hash
 n := sqlid.Normalize("SELECT  1 ;")           // "select ? "
 
-raw := sqlid.SQLIdRaw("select 1")             // ID of the exact text, no normalization
-custom := sqlid.SQLId("select 1", sqlid.StripConstants(false))
+raw := sqlid.SQLRawID("select 1")             // ID of the exact text, no normalization
+custom := sqlid.SQLID("select 1", sqlid.StripConstants(false))
 ```
 
-`SQLId` and `SQLHash` normalize the statement first; `SQLIdRaw` and `SQLHashRaw` operate on the exact text given. Normalization is controlled by functional options ([options.go](options.go)): `Lowercase`, `Uncomment`, `StripSemicolon`, `Compress`, `Newline`, `RewriteWith` and `StripConstants`, each enabled by default.
+`SQLID` and `SQLHash` normalize the statement first; `SQLRawID` and `SQLRawHash` operate on the exact text given. Normalization is controlled by functional options ([options.go](options.go)): `Lowercase`, `Uncomment`, `StripSemicolon`, `Compress`, `Newline`, `RewriteWith` and `StripConstants`, each enabled by default.
 
 ## CLI
 

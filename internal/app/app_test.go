@@ -20,7 +20,7 @@ const (
 func run(t *testing.T, args []string, stdin io.Reader) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer
-	code := Run(context.Background(), append([]string{"sqlid"}, args...), stdin, &out, &errb)
+	code := Run(context.Background(), append([]string{name}, args...), stdin, &out, &errb)
 	return code, out.String(), errb.String()
 }
 
@@ -120,7 +120,7 @@ func TestRunStdinReadErrorExitsNonZero(t *testing.T) {
 
 func TestRunStdoutWriteErrorExitsNonZero(t *testing.T) {
 	var errb bytes.Buffer
-	code := Run(context.Background(), []string{"sqlid", "--no-stdin", "select 1"}, empty(), failWriter{}, &errb)
+	code := Run(context.Background(), []string{name, "--no-stdin", "select 1"}, empty(), failWriter{}, &errb)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}

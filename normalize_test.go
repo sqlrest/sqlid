@@ -17,7 +17,12 @@ func TestNormalizeOptions(t *testing.T) {
 		{"strip-constants", "select 1", StripConstants(false), "select 1\n"},
 		{"strip-semicolon", "select 1;", StripSemicolon(false), "select 1;\n"},
 		{"newline", "select x", Newline(false), "select x"},
-		{"rewrite-with", "with a as (select 1) select * from a", RewriteWith(false), "with a as (select 1) select * from a\n"},
+		{
+			"rewrite-with",
+			"with a as (select 1) select * from a",
+			RewriteWith(false),
+			"with a as (select 1) select * from a\n",
+		},
 		{"compress", "select   1  x", Compress(false), "select   ?  x\n"},
 	}
 	for _, c := range cases {
