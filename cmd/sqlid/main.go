@@ -8,6 +8,9 @@ import (
 	"github.com/sqlrest/sqlid/internal/app"
 )
 
+// version is injected at build time via ldflags -X main.version={{.Version}}.
+var version = "dev"
+
 // Indirections over the process environment so main is exercised in tests.
 var (
 	osArgs = os.Args
@@ -15,5 +18,5 @@ var (
 )
 
 func main() {
-	osExit(app.Run(context.Background(), osArgs, os.Stdin, os.Stdout, os.Stderr))
+	osExit(app.Run(context.Background(), version, osArgs, os.Stdin, os.Stdout, os.Stderr))
 }

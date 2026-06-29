@@ -20,7 +20,7 @@ const (
 func run(t *testing.T, args []string, stdin io.Reader) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer
-	code := Run(context.Background(), append([]string{name}, args...), stdin, &out, &errb)
+	code := Run(context.Background(), "dev", append([]string{name}, args...), stdin, &out, &errb)
 	return code, out.String(), errb.String()
 }
 
@@ -35,6 +35,19 @@ func (failReader) Read([]byte) (int, error) { return 0, io.ErrClosedPipe }
 type failWriter struct{}
 
 func (failWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
+
+// TestRunVersion asserts --version prints "sqlid version <version>" with the
+// build-time version string and exits cleanly.
+func TestRunVersion(t *testing.T) {
+	var out, errb bytes.Buffer
+	code := Run(context.Background(), "9.9.9", []string{name, "--version"}, empty(), &out, &errb)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0", code)
+	}
+	if !strings.Contains(out.String(), "sqlid version 9.9.9") {
+		t.Errorf("version output = %q, want it to contain %q", out.String(), "sqlid version 9.9.9")
+	}
+}
 
 // TestRunDefault exercises the happy path: flag parsing, config building, the
 // non-terminal stdin branch, osFS, and writing to stdout.
@@ -120,7 +133,7 @@ func TestRunStdinReadErrorExitsNonZero(t *testing.T) {
 
 func TestRunStdoutWriteErrorExitsNonZero(t *testing.T) {
 	var errb bytes.Buffer
-	code := Run(context.Background(), []string{name, "--no-stdin", "select 1"}, empty(), failWriter{}, &errb)
+	code := Run(context.Background(), "dev", []string{name, "--no-stdin", "select 1"}, empty(), failWriter{}, &errb)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}

@@ -97,10 +97,14 @@ func execute(cmd *cli.Command, filesys identify.FileSystem, stdin io.Reader, std
 	return err
 }
 
-// command builds the sqlid command wired to the given streams.
-func command(stdin io.Reader, stdout, stderr io.Writer) *cli.Command {
+// command builds the sqlid command wired to the given streams. version is the
+// build-time version exposed via --version as "sqlid version <version>".
+func command(version string, stdin io.Reader, stdout, stderr io.Writer) *cli.Command {
+	// sqlid uses -v for --verbose, so drop the version flag's default -v alias.
+	cli.VersionFlag = &cli.BoolFlag{Name: "version", Usage: "print the version and exit"}
 	return &cli.Command{
 		Name:           name,
+		Version:        version,
 		Usage:          "Calculate the SQL ID and SQL hash of each SQL statement",
 		ArgsUsage:      "[SQL|FILE]...",
 		Flags:          flags(),
@@ -114,10 +118,10 @@ func command(stdin io.Reader, stdout, stderr io.Writer) *cli.Command {
 	}
 }
 
-// Run executes the sqlid CLI with the given arguments and streams, returning
-// the process exit code.
-func Run(ctx context.Context, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	if err := command(stdin, stdout, stderr).Run(ctx, args); err != nil {
+// Run executes the sqlid CLI with the given version, arguments, and streams,
+// returning the process exit code.
+func Run(ctx context.Context, version string, args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	if err := command(version, stdin, stdout, stderr).Run(ctx, args); err != nil {
 		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
