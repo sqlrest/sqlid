@@ -4,115 +4,45 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/sqlrest/sqlid/internal/constants"
+	"github.com/sqlrest/sqlid/internal/app/commands/identify"
 )
 
-const (
-	wantID   = "dmrrk1sbj01z"
-	wantHash = "1891139647"
-)
-
-func run(t *testing.T, args []string, stdin io.Reader) (int, string, string) {
+func run(t *testing.T, args []string) (int, string, string) {
 	t.Helper()
 	var out, errb bytes.Buffer
-	code := Run(context.Background(), "dev", append([]string{name}, args...), stdin, &out, &errb)
+	code := Run(
+		context.Background(),
+		"dev",
+		append([]string{identify.Name}, args...),
+		strings.NewReader(""),
+		&out,
+		&errb,
+	)
 	return code, out.String(), errb.String()
 }
 
-func empty() io.Reader { return strings.NewReader("") }
-
-// failReader fails on every read.
-type failReader struct{}
-
-func (failReader) Read([]byte) (int, error) { return 0, io.ErrClosedPipe }
-
-// failWriter fails on every write.
-type failWriter struct{}
-
-func (failWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }
-
-// TestRunVersion asserts --version prints "sqlid version <version>" with the
-// build-time version string and exits cleanly.
-func TestRunVersion(t *testing.T) {
-	var out, errb bytes.Buffer
-	code := Run(context.Background(), "9.9.9", []string{name, "--version"}, empty(), &out, &errb)
+// TestRunExitsZeroOnSuccess asserts a successful command run maps to exit
+// code 0 with the rendered output on stdout.
+func TestRunExitsZeroOnSuccess(t *testing.T) {
+	code, out, errOut := run(t, []string{"--no-stdin", "select 1"})
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
 	}
-	if !strings.Contains(out.String(), "sqlid version 9.9.9") {
-		t.Errorf("version output = %q, want it to contain %q", out.String(), "sqlid version 9.9.9")
-	}
-}
-
-// TestRunDefault exercises the happy path: flag parsing, config building, the
-// non-terminal stdin branch, osFS, and writing to stdout.
-func TestRunDefault(t *testing.T) {
-	code, out, _ := run(t, []string{"--no-stdin", "select 1"}, empty())
-	if code != 0 {
-		t.Fatalf("exit code = %d, want 0", code)
-	}
-	if out != wantID+" "+wantHash+" arg[0]\n" {
+	if out != "dmrrk1sbj01z 1891139647 arg[0]\n" {
 		t.Errorf("output = %q", out)
 	}
-}
-
-// TestRunReadsTerminalLikeFileStdin drives the *os.File branch of isTerminal
-// with a regular file (which term.IsTerminal reports as not a terminal).
-func TestRunReadsTerminalLikeFileStdin(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "in.sql")
-	if err := os.WriteFile(path, []byte("select 1"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	file, err := os.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer file.Close()
-	code, out, _ := run(t, nil, file)
-	if code != 0 {
-		t.Fatalf("exit code = %d", code)
-	}
-	if out != wantID+" "+wantHash+"\n" {
-		t.Errorf("output = %q", out)
+	if errOut != "" {
+		t.Errorf("stderr = %q, want empty", errOut)
 	}
 }
 
-func TestRunWritesOutputFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "out.txt")
-	code, out, _ := run(t, []string{"-o", path, "--no-stdin", "select 1"}, empty())
-	if code != 0 {
-		t.Fatalf("exit code = %d", code)
-	}
-	if out != "" {
-		t.Errorf("stdout = %q, want empty", out)
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if string(data) != wantID+" "+wantHash+" arg[0]\n" {
-		t.Errorf("file = %q", data)
-	}
-}
-
-func TestRunWriteFileErrorExitsNonZero(t *testing.T) {
-	missing := filepath.Join(t.TempDir(), "no-such-dir", "out.txt")
-	code, _, errOut := run(t, []string{"-o", missing, "--no-stdin", "select 1"}, empty())
-	if code != 1 {
-		t.Fatalf("exit code = %d, want 1", code)
-	}
-	if !strings.Contains(errOut, constants.ErrWriteFile.Error()) {
-		t.Errorf("stderr = %q, want it to mention %q", errOut, constants.ErrWriteFile)
-	}
-}
-
-func TestRunFlagParseErrorExitsNonZero(t *testing.T) {
-	code, _, errOut := run(t, []string{"--bogus"}, empty())
+// TestRunExitsOneOnError asserts a command error maps to exit code 1 with the
+// error printed to stderr.
+func TestRunExitsOneOnError(t *testing.T) {
+	code, _, errOut := run(t, []string{"--bogus"})
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
@@ -121,20 +51,24 @@ func TestRunFlagParseErrorExitsNonZero(t *testing.T) {
 	}
 }
 
-func TestRunStdinReadErrorExitsNonZero(t *testing.T) {
-	code, _, errOut := run(t, nil, failReader{})
+// TestRunStdoutWriteErrorExitsNonZero drives the error path through the
+// command's stdout writer.
+func TestRunStdoutWriteErrorExitsNonZero(t *testing.T) {
+	var errb bytes.Buffer
+	code := Run(
+		context.Background(),
+		"dev",
+		[]string{identify.Name, "--no-stdin", "select 1"},
+		strings.NewReader(""),
+		failWriter{},
+		&errb,
+	)
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
-	}
-	if !strings.Contains(errOut, constants.ErrReadStdin.Error()) {
-		t.Errorf("stderr = %q, want it to mention %q", errOut, constants.ErrReadStdin)
 	}
 }
 
-func TestRunStdoutWriteErrorExitsNonZero(t *testing.T) {
-	var errb bytes.Buffer
-	code := Run(context.Background(), "dev", []string{name, "--no-stdin", "select 1"}, empty(), failWriter{}, &errb)
-	if code != 1 {
-		t.Fatalf("exit code = %d, want 1", code)
-	}
-}
+// failWriter fails on every write.
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) { return 0, io.ErrClosedPipe }

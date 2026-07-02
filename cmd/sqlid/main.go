@@ -18,5 +18,5 @@ var (
 )
 
 func main() {
-	osExit(app.Run(context.Background(), version, osArgs, os.Stdin, os.Stdout, os.Stderr))
+	osExit(app.Run(context.Background(), app.Version(version), osArgs, os.Stdin, os.Stdout, os.Stderr))
 }

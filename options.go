@@ -3,51 +3,51 @@ package sqlid
 // config holds the enabled state of each normalization step. Every step is
 // enabled by default; options disable individual steps.
 type config struct {
-	lowercase      bool
-	uncomment      bool
-	stripSemicolon bool
-	compress       bool
-	newline        bool
-	rewriteWith    bool
-	stripConstants bool
+	lowercaseEnabled      bool
+	uncommentEnabled      bool
+	stripSemicolonEnabled bool
+	compressEnabled       bool
+	newlineEnabled        bool
+	rewriteWithEnabled    bool
+	stripConstantsEnabled bool
 }
 
 // defaults returns the configuration with every normalization step enabled.
 func defaults() config {
 	return config{
-		lowercase:      true,
-		uncomment:      true,
-		stripSemicolon: true,
-		compress:       true,
-		newline:        true,
-		rewriteWith:    true,
-		stripConstants: true,
+		lowercaseEnabled:      true,
+		uncommentEnabled:      true,
+		stripSemicolonEnabled: true,
+		compressEnabled:       true,
+		newlineEnabled:        true,
+		rewriteWithEnabled:    true,
+		stripConstantsEnabled: true,
 	}
 }
 
 // step is one normalization stage together with whether it is enabled.
 type step struct {
-	fn      transform
-	enabled bool
+	fn        transform
+	isEnabled bool
 }
 
 // steps returns the ordered pipeline for the configuration.
 func (c config) steps() []step {
 	return []step{
-		{enabled: c.lowercase, fn: lower},
-		{enabled: c.uncomment, fn: uncomment},
-		{enabled: c.stripSemicolon, fn: stripSemicolon},
-		{enabled: c.compress, fn: collapse},
-		{enabled: c.newline, fn: appendNewline},
-		{enabled: c.rewriteWith, fn: renameWithAliases},
-		{enabled: c.stripConstants, fn: stripConstants},
+		{isEnabled: c.lowercaseEnabled, fn: lower},
+		{isEnabled: c.uncommentEnabled, fn: uncomment},
+		{isEnabled: c.stripSemicolonEnabled, fn: stripSemicolon},
+		{isEnabled: c.compressEnabled, fn: collapse},
+		{isEnabled: c.newlineEnabled, fn: appendNewline},
+		{isEnabled: c.rewriteWithEnabled, fn: renameWithAliases},
+		{isEnabled: c.stripConstantsEnabled, fn: stripConstants},
 	}
 }
 
 // run applies the enabled steps to the statement in order.
 func (c config) run(s Statement) Statement {
 	for _, step := range c.steps() {
-		if step.enabled {
+		if step.isEnabled {
 			s = step.fn(s)
 		}
 	}
@@ -57,7 +57,7 @@ func (c config) run(s Statement) Statement {
 // Option configures normalization. The set of options is closed: only the
 // option types defined in this package satisfy the interface.
 type Option interface {
-	apply(*config)
+	apply(config) config
 }
 
 // Lowercase toggles case folding (default true).
@@ -83,13 +83,13 @@ type RewriteWith bool
 // (default true).
 type StripConstants bool
 
-func (o Lowercase) apply(c *config)      { c.lowercase = bool(o) }
-func (o Uncomment) apply(c *config)      { c.uncomment = bool(o) }
-func (o StripSemicolon) apply(c *config) { c.stripSemicolon = bool(o) }
-func (o Compress) apply(c *config)       { c.compress = bool(o) }
-func (o Newline) apply(c *config)        { c.newline = bool(o) }
-func (o RewriteWith) apply(c *config)    { c.rewriteWith = bool(o) }
-func (o StripConstants) apply(c *config) { c.stripConstants = bool(o) }
+func (o Lowercase) apply(c config) config      { c.lowercaseEnabled = bool(o); return c }
+func (o Uncomment) apply(c config) config      { c.uncommentEnabled = bool(o); return c }
+func (o StripSemicolon) apply(c config) config { c.stripSemicolonEnabled = bool(o); return c }
+func (o Compress) apply(c config) config       { c.compressEnabled = bool(o); return c }
+func (o Newline) apply(c config) config        { c.newlineEnabled = bool(o); return c }
+func (o RewriteWith) apply(c config) config    { c.rewriteWithEnabled = bool(o); return c }
+func (o StripConstants) apply(c config) config { c.stripConstantsEnabled = bool(o); return c }
 
 // Compile-time verification that every option type satisfies Option.
 var (
@@ -107,7 +107,7 @@ var (
 func Normalize(s Statement, options ...Option) Statement {
 	cfg := defaults()
 	for _, option := range options {
-		option.apply(&cfg)
+		cfg = option.apply(cfg)
 	}
 	return cfg.run(s)
 }

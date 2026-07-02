@@ -28,48 +28,54 @@ type FileSystem struct {
 
 // Output captures the selected output mode.
 type Output struct {
-	Format    string
-	IDOnly    bool
-	HashOnly  bool
-	HasFormat bool
-	Tabs      bool
-	Verbose   bool
-	NoName    bool
+	Format       string
+	IsIDOnly     bool
+	IsHashOnly   bool
+	HasFormat    bool
+	TabsEnabled  bool
+	IsVerbose    bool
+	NameDisabled bool
 }
 
 // Config holds the resolved settings for one invocation: the normalization
 // toggles (negated flags), the output mode, and whether standard input should
 // be read.
 type Config struct {
-	Output      Output
-	KeepCase    bool
-	NoUncomment bool
-	NoCompress  bool
-	NoNewline   bool
-	KeepWith    bool
-	KeepConst   bool
-	Semicolon   bool
-	UseStdin    bool
+	Output              Output
+	ShouldKeepCase      bool
+	UncommentDisabled   bool
+	CompressDisabled    bool
+	NewlineDisabled     bool
+	ShouldKeepWith      bool
+	ShouldKeepConst     bool
+	ShouldKeepSemicolon bool
+	ShouldReadStdin     bool
 }
 
 // options translates the configuration's toggles into normalization options.
 func (c Config) options() []sqlid.Option {
 	return []sqlid.Option{
-		sqlid.Lowercase(!c.KeepCase),
-		sqlid.Uncomment(!c.NoUncomment && !c.NoCompress),
-		sqlid.StripSemicolon(!c.Semicolon),
-		sqlid.Compress(!c.NoCompress),
-		sqlid.Newline(!c.NoNewline),
-		sqlid.RewriteWith(!c.KeepWith),
-		sqlid.StripConstants(!c.KeepConst),
+		sqlid.Lowercase(!c.ShouldKeepCase),
+		sqlid.Uncomment(!c.UncommentDisabled && !c.CompressDisabled),
+		sqlid.StripSemicolon(!c.ShouldKeepSemicolon),
+		sqlid.Compress(!c.CompressDisabled),
+		sqlid.Newline(!c.NewlineDisabled),
+		sqlid.RewriteWith(!c.ShouldKeepWith),
+		sqlid.StripConstants(!c.ShouldKeepConst),
 	}
 }
 
+// argument is one positional CLI argument: a file path or literal SQL text.
+type argument string
+
+// position is an argument's zero-based place on the command line.
+type position int
+
 // statement is a single input to process, with its display name and origin.
 type statement struct {
-	name      string
-	sql       sqlid.Statement
-	fromStdin bool
+	name        string
+	sql         sqlid.Statement
+	isFromStdin bool
 }
 
 // result holds the computed fields available to the output formatters.
@@ -83,55 +89,40 @@ type result struct {
 
 // fromArg resolves a positional argument to a file's contents or a literal SQL
 // string.
-func fromArg(filesys FileSystem, arg string, index int) (statement, error) {
-	if info, err := filesys.Stat(arg); err == nil && !info.IsDir() {
-		data, err := filesys.Read(arg)
+func fromArg(filesys FileSystem, arg argument, index position) (statement, error) {
+	if info, err := filesys.Stat(string(arg)); err == nil && !info.IsDir() {
+		data, err := filesys.Read(string(arg))
 		if err != nil {
-			return statement{}, constants.ErrReadFile.With(nil, arg)
+			return statement{}, constants.ErrReadFile.With(nil, string(arg))
 		}
-		return statement{name: arg, sql: sqlid.Statement(data)}, nil
+		return statement{name: string(arg), sql: sqlid.Statement(data)}, nil
 	}
-	return statement{name: fmt.Sprintf("arg[%d]", index), sql: sqlid.Statement(arg)}, nil
+	return statement{name: fmt.Sprintf("arg[%d]", int(index)), sql: sqlid.Statement(arg)}, nil
 }
 
-// collect gathers all inputs from positional arguments and standard input.
-func collect(filesys FileSystem, args []string, stdin io.Reader, useStdin bool) ([]statement, error) {
+// collect gathers all inputs from positional arguments and, when the
+// configuration asks for it, standard input.
+func (c Config) collect(filesys FileSystem, args []string, stdin io.Reader) ([]statement, error) {
 	statements := make([]statement, 0, len(args)+1)
 	for index, arg := range args {
-		in, err := fromArg(filesys, arg, index)
+		in, err := fromArg(filesys, argument(arg), position(index))
 		if err != nil {
 			return nil, err
 		}
 		statements = append(statements, in)
 	}
-	if !useStdin {
+	if !c.ShouldReadStdin {
 		return statements, nil
 	}
 	data, err := io.ReadAll(stdin)
 	if err != nil {
 		return nil, constants.ErrReadStdin.With(err)
 	}
-	return append(statements, statement{name: "--", sql: sqlid.Statement(data), fromStdin: true}), nil
-}
-
-// compute normalizes a statement and derives its identifiers.
-func compute(in statement, opts []sqlid.Option, noName bool) result {
-	normalized := sqlid.Normalize(in.sql, opts...)
-	name := in.name
-	if noName {
-		name = ""
-	}
-	return result{
-		id:         sqlid.SQLRawID(normalized),
-		hash:       sqlid.SQLRawHash(normalized),
-		name:       name,
-		normalized: normalized,
-		original:   in.sql,
-	}
+	return append(statements, statement{name: "--", sql: sqlid.Statement(data), isFromStdin: true}), nil
 }
 
 // field resolves a single format-string character to its result field.
-func field(char rune, r result) string {
+func (r result) field(char rune) string {
 	switch char {
 	case 'i':
 		return string(r.id)
@@ -147,71 +138,101 @@ func field(char rune, r result) string {
 	return string(char)
 }
 
-// formatLine renders a custom format string against a result.
-func formatLine(template string, r result) string {
+// formatLine renders a custom format string against the result.
+func (r result) formatLine(template string) string {
 	template = strings.ReplaceAll(template, `\n`, "\n")
 	template = strings.ReplaceAll(template, `\t`, "\t")
 	var b strings.Builder
 	for _, char := range template {
 		// strings.Builder.WriteString never returns a non-nil error.
-		_, _ = b.WriteString(field(char, r))
+		_, _ = b.WriteString(r.field(char))
 	}
 	return b.String()
 }
 
+// renderer holds the resolved output context applied to every statement: the
+// normalization options, the output mode, the column separator, and whether
+// the bare (single stdin input) form applies.
+type renderer struct {
+	opts   []sqlid.Option
+	sep    string
+	out    Output
+	isBare bool
+}
+
+// compute normalizes a statement and derives its identifiers.
+func (rd renderer) compute(in statement) result {
+	normalized := sqlid.Normalize(in.sql, rd.opts...)
+	name := in.name
+	if rd.out.NameDisabled {
+		name = ""
+	}
+	return result{
+		id:         sqlid.SQLRawID(normalized),
+		hash:       sqlid.SQLRawHash(normalized),
+		name:       name,
+		normalized: normalized,
+		original:   in.sql,
+	}
+}
+
 // pair renders a value optionally followed by a separator and name.
-func pair(value, name, sep string, bare bool) string {
-	if bare {
+func (rd renderer) pair(value, name string) string {
+	if rd.isBare {
 		return value
 	}
-	return value + sep + name
+	return value + rd.sep + name
 }
 
 // fullLine renders the default id/hash/name columns (plus normalized when verbose).
-func fullLine(r result, o Output, sep string, bare bool) string {
+func (rd renderer) fullLine(r result) string {
 	columns := []string{string(r.id), fmt.Sprint(r.hash), r.name}
-	if o.Verbose {
+	if rd.out.IsVerbose {
 		columns = append(columns, string(r.normalized))
 	}
-	if bare {
-		return strings.Join(columns[:2], sep)
+	if rd.isBare {
+		return strings.Join(columns[:2], rd.sep)
 	}
-	return strings.Join(columns, sep)
+	return strings.Join(columns, rd.sep)
 }
 
 // line renders one result according to the output mode.
-func line(r result, o Output, sep string, bare bool) string {
-	if o.IDOnly {
-		return pair(string(r.id), r.name, sep, bare)
+func (rd renderer) line(r result) string {
+	if rd.out.IsIDOnly {
+		return rd.pair(string(r.id), r.name)
 	}
-	if o.HashOnly {
-		return pair(fmt.Sprint(r.hash), r.name, sep, bare)
+	if rd.out.IsHashOnly {
+		return rd.pair(fmt.Sprint(r.hash), r.name)
 	}
-	return fullLine(r, o, sep, bare)
+	return rd.fullLine(r)
 }
 
 // renderOne computes and renders a single statement.
-func renderOne(in statement, opts []sqlid.Option, o Output, sep string, bare bool) string {
-	r := compute(in, opts, o.NoName)
-	if o.HasFormat {
-		return formatLine(o.Format, r)
+func (rd renderer) renderOne(in statement) string {
+	r := rd.compute(in)
+	if rd.out.HasFormat {
+		return r.formatLine(rd.out.Format)
 	}
-	return line(r, o, sep, bare)
+	return rd.line(r)
 }
 
 // render produces one output line per non-blank input.
 func render(statements []statement, opts []sqlid.Option, o Output) []string {
-	sep := " "
-	if o.Tabs {
-		sep = "\t"
+	rd := renderer{
+		opts:   opts,
+		sep:    " ",
+		out:    o,
+		isBare: len(statements) == 1 && statements[0].isFromStdin,
 	}
-	bare := len(statements) == 1 && statements[0].fromStdin
+	if o.TabsEnabled {
+		rd.sep = "\t"
+	}
 	lines := make([]string, 0, len(statements))
 	for _, in := range statements {
 		if strings.TrimSpace(string(in.sql)) == "" {
 			continue
 		}
-		lines = append(lines, renderOne(in, opts, o, sep, bare))
+		lines = append(lines, rd.renderOne(in))
 	}
 	return lines
 }
@@ -231,7 +252,7 @@ func join(lines []string) string {
 // combined text. It validates nothing beyond what collection requires and
 // delegates all SQL work to the sqlid library.
 func Run(cfg Config, filesys FileSystem, args []string, stdin io.Reader) (string, error) {
-	statements, err := collect(filesys, args, stdin, cfg.UseStdin)
+	statements, err := cfg.collect(filesys, args, stdin)
 	if err != nil {
 		return "", err
 	}

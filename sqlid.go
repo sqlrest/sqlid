@@ -37,16 +37,20 @@ func (s Statement) words() (most, least uint32) {
 	return binary.LittleEndian.Uint32(sum[8:12]), binary.LittleEndian.Uint32(sum[12:16])
 }
 
-// base32 encodes value with alphabet, most significant digit first.
-func base32(value uint64) ID {
-	if value == 0 {
+// digest is the 64-bit tail of a statement's MD5 digest — the value a SQL ID
+// encodes.
+type digest uint64
+
+// base32 encodes the digest with alphabet, most significant digit first.
+func (d digest) base32() ID {
+	if d == 0 {
 		return ID(alphabet[:1])
 	}
-	width := int(math.Log(float64(value))/math.Log(radix) + 1)
+	width := int(math.Log(float64(d))/math.Log(radix) + 1)
 	out := make([]byte, width)
-	power := uint64(1)
+	power := digest(1)
 	for i := range width {
-		out[width-1-i] = alphabet[(value/power)%radix]
+		out[width-1-i] = alphabet[(d/power)%radix]
 		power *= radix
 	}
 	return ID(out)
@@ -56,7 +60,7 @@ func base32(value uint64) ID {
 // normalization.
 func SQLRawID(s Statement) ID {
 	most, least := s.words()
-	return base32(uint64(most)<<32 | uint64(least))
+	return digest(uint64(most)<<32 | uint64(least)).base32()
 }
 
 // SQLRawHash returns the SQL hash of the statement exactly as given, without

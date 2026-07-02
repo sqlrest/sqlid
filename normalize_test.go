@@ -37,7 +37,7 @@ func TestNormalizeOptions(t *testing.T) {
 func TestTopLevelSegments(t *testing.T) {
 	cases := []struct {
 		name string
-		in   string
+		in   Statement
 		want []string
 	}{
 		{"flat groups", "a(b)c(d)e.", []string{"a", "c", "e"}},

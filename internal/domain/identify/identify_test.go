@@ -39,56 +39,56 @@ func TestRunOutputModes(t *testing.T) {
 		},
 		{
 			name:  "stdin is bare",
-			cfg:   Config{UseStdin: true},
+			cfg:   Config{ShouldReadStdin: true},
 			args:  nil,
 			stdin: strings.NewReader("select 1"),
 			want:  wantID + " " + wantHash + "\n",
 		},
 		{
 			name:  "id only",
-			cfg:   Config{Output: Output{IDOnly: true}},
+			cfg:   Config{Output: Output{IsIDOnly: true}},
 			args:  []string{"select 1"},
 			stdin: empty(),
 			want:  wantID + " arg[0]\n",
 		},
 		{
 			name:  "hash only",
-			cfg:   Config{Output: Output{HashOnly: true}},
+			cfg:   Config{Output: Output{IsHashOnly: true}},
 			args:  []string{"select 1"},
 			stdin: empty(),
 			want:  wantHash + " arg[0]\n",
 		},
 		{
 			name:  "id only stdin bare",
-			cfg:   Config{UseStdin: true, Output: Output{IDOnly: true}},
+			cfg:   Config{ShouldReadStdin: true, Output: Output{IsIDOnly: true}},
 			args:  nil,
 			stdin: strings.NewReader("select 1"),
 			want:  wantID + "\n",
 		},
 		{
 			name:  "hash only stdin bare",
-			cfg:   Config{UseStdin: true, Output: Output{HashOnly: true}},
+			cfg:   Config{ShouldReadStdin: true, Output: Output{IsHashOnly: true}},
 			args:  nil,
 			stdin: strings.NewReader("select 1"),
 			want:  wantHash + "\n",
 		},
 		{
 			name:  "no name",
-			cfg:   Config{Output: Output{NoName: true}},
+			cfg:   Config{Output: Output{NameDisabled: true}},
 			args:  []string{"select 1"},
 			stdin: empty(),
 			want:  wantID + " " + wantHash + " \n",
 		},
 		{
 			name:  "verbose",
-			cfg:   Config{Output: Output{Verbose: true}},
+			cfg:   Config{Output: Output{IsVerbose: true}},
 			args:  []string{"select 1"},
 			stdin: empty(),
 			want:  wantID + " " + wantHash + " arg[0] select ? \n",
 		},
 		{
 			name:  "tabs",
-			cfg:   Config{Output: Output{Tabs: true}},
+			cfg:   Config{Output: Output{TabsEnabled: true}},
 			args:  []string{"select 1"},
 			stdin: empty(),
 			want:  wantID + "\t" + wantHash + "\targ[0]\n",
@@ -161,7 +161,12 @@ func TestRunTreatsDirectoryAsLiteral(t *testing.T) {
 }
 
 func TestRunKeepConstChangesResult(t *testing.T) {
-	out, err := Run(Config{KeepConst: true, Output: Output{IDOnly: true}}, realFS(), []string{"select 1"}, empty())
+	out, err := Run(
+		Config{ShouldKeepConst: true, Output: Output{IsIDOnly: true}},
+		realFS(),
+		[]string{"select 1"},
+		empty(),
+	)
 	if err != nil {
 		t.Fatalf("Run error = %v", err)
 	}
@@ -171,7 +176,7 @@ func TestRunKeepConstChangesResult(t *testing.T) {
 }
 
 func TestRunStdinReadError(t *testing.T) {
-	_, err := Run(Config{UseStdin: true}, realFS(), nil, failReader{})
+	_, err := Run(Config{ShouldReadStdin: true}, realFS(), nil, failReader{})
 	if !errors.Is(err, constants.ErrReadStdin) {
 		t.Errorf("error = %v, want %v", err, constants.ErrReadStdin)
 	}
@@ -182,7 +187,7 @@ func TestCollectPropagatesReadError(t *testing.T) {
 		Stat: func(string) (fs.FileInfo, error) { return fakeInfo{}, nil },
 		Read: func(string) ([]byte, error) { return nil, io.ErrUnexpectedEOF },
 	}
-	_, err := collect(filesys, []string{"x"}, empty(), false)
+	_, err := Config{}.collect(filesys, []string{"x"}, empty())
 	if !errors.Is(err, constants.ErrReadFile) {
 		t.Errorf("error = %v, want %v", err, constants.ErrReadFile)
 	}

@@ -61,7 +61,7 @@ func renameWithAliases(s Statement) Statement {
 		return s
 	}
 	sequence := 1
-	for _, segment := range topLevelSegments(stmt) {
+	for _, segment := range topLevelSegments(s) {
 		match := withRe.FindStringSubmatch(segment)
 		if match == nil {
 			continue
@@ -73,8 +73,9 @@ func renameWithAliases(s Statement) Statement {
 }
 
 // scan accumulates the top-level (depth-zero) text segments of a statement
-// while tracking parenthesis depth and skipping quoted regions. It is a pointer
-// receiver because it is mutable parser state advanced character by character.
+// while tracking parenthesis depth and skipping quoted regions. It is an
+// immutable value advanced character by character: each step returns the next
+// scanner state instead of mutating the receiver.
 type scan struct {
 	segs  []string
 	depth int
@@ -83,70 +84,77 @@ type scan struct {
 }
 
 // inQuote reports whether the current character lies inside a quoted region,
-// toggling the active quote when the character is a quote delimiter.
-func (s *scan) inQuote(c byte) bool {
+// returning the scanner with the active quote toggled when the character is a
+// quote delimiter.
+func (s scan) inQuote(c byte) (scan, bool) {
 	if c == '\'' || c == '"' {
-		s.toggle(c)
+		s = s.toggle(c)
 	}
-	return s.quote != 0
+	return s, s.quote != 0
 }
 
 // toggle opens a quoted region on the first delimiter and closes it on a
 // matching delimiter; a different delimiter inside a region is left untouched.
-func (s *scan) toggle(c byte) {
+func (s scan) toggle(c byte) scan {
 	switch s.quote {
 	case 0:
 		s.quote = c
 	case c:
 		s.quote = 0
 	}
+	return s
 }
 
 // open records the depth-zero text before a parenthesis and descends a level.
-func (s *scan) open(index int, stmt string) {
+func (s scan) open(index int, stmt string) scan {
 	if s.depth == 0 {
 		s.segs = append(s.segs, stmt[s.start:index])
 	}
 	s.depth++
 	s.start = index + 1
+	return s
 }
 
 // closeGroup ascends a level (when one is open) past a parenthesis.
-func (s *scan) closeGroup(index int) {
+func (s scan) closeGroup(index int) scan {
 	if s.depth > 0 {
 		s.depth--
 	}
 	s.start = index + 1
+	return s
 }
 
 // paren dispatches parenthesis handling for the character at index.
-func (s *scan) paren(index int, c byte, stmt string) {
+func (s scan) paren(index int, c byte, stmt string) scan {
 	switch c {
 	case '(':
-		s.open(index, stmt)
+		return s.open(index, stmt)
 	case ')':
-		s.closeGroup(index)
+		return s.closeGroup(index)
 	}
+	return s
 }
 
 // finish appends the trailing depth-zero segment, dropping the final character
 // (the appended newline), matching the historical parser the rewrite relies on.
-func (s *scan) finish(stmt string) []string {
+func (s scan) finish(stmt string) []string {
 	if s.start != len(stmt) {
 		s.segs = append(s.segs, stmt[s.start:len(stmt)-1])
 	}
 	return s.segs
 }
 
-// topLevelSegments returns the depth-zero text segments of stmt.
-func topLevelSegments(stmt string) []string {
-	s := &scan{}
+// topLevelSegments returns the depth-zero text segments of the statement.
+func topLevelSegments(s Statement) []string {
+	stmt := string(s)
+	sc := scan{}
 	for index := range len(stmt) {
-		c := stmt[index]
-		if s.inQuote(c) {
+		next, quoted := sc.inQuote(stmt[index])
+		sc = next
+		if quoted {
 			continue
 		}
-		s.paren(index, c, stmt)
+		sc = sc.paren(index, stmt[index], stmt)
 	}
-	return s.finish(stmt)
+	return sc.finish(stmt)
 }
