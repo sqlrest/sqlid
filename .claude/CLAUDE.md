@@ -1,6 +1,6 @@
 # sqlid — agent instructions
 
-`sqlid` computes Oracle-style SQL IDs and hashes that identify the *same* SQL statement across processes regardless of `WITH`-clause aliases and literal constants. It is a **library first** (the public `github.com/sqlrest/sqlid` package at the module root) with a thin CLI on top, and it ships a parity-checked Python implementation in [`py/`](../py).
+`sqlid` computes Oracle-style SQL IDs and hashes that identify the _same_ SQL statement across processes regardless of `WITH`-clause aliases and literal constants. It is a **library first** (the public `github.com/sqlrest/sqlid` package at the module root) with a thin CLI on top, and it ships a parity-checked Python implementation in [`py/`](../py).
 
 It follows the [gomatic/template.cli](https://github.com/gomatic/template.cli) tiered architecture, adapted to a single-command, text-output, library-first tool. **Read [`docs/architecture.md`](../docs/architecture.md) before changing anything.**
 

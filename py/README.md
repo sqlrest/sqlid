@@ -1,6 +1,6 @@
 # sqlid (Python)
 
-Compute an Oracle-style **SQL ID** that identifies the *same* SQL statement across processes — regardless of `WITH`-clause aliases and literal constants.
+Compute an Oracle-style **SQL ID** that identifies the _same_ SQL statement across processes — regardless of `WITH`-clause aliases and literal constants.
 
 The algorithm mirrors Oracle's `SQL_ID`: MD5 the statement (with a trailing NUL byte), read the last 8 bytes of the digest as a 64-bit little-endian integer, and base-32 encode it with Oracle's alphabet (`0123456789abcdfghjkmnpqrstuvwxyz`). It does not attempt to reproduce any specific database's `SQL_ID` value; its purpose is deterministic, normalization-aware identification.
 
