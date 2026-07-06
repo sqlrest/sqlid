@@ -19,7 +19,7 @@ Dependencies flow one direction only.
 - Constant sentinel errors in [`internal/constants`](../internal/constants); match with `errors.Is`, never by string. Wrap with `.With`.
 - Tests use the standard `testing` package only — **do not add `testify`** or other assertion libraries.
 - 100% statement coverage per package; cognitive complexity ≤ 7 per function; `gofumpt`-clean.
-- `make check` must pass before a change is complete. Build tooling (`Makefile`, `scripts/`, `go.mod` tool stanza, `.goreleaser.yaml`, CI) is maintained separately — do not change it as part of a feature change.
+- `make check` must pass before a change is complete. Build tooling (`Makefile`, `go.mod` tool stanza, `.goreleaser.yaml`, CI) is maintained separately — do not change it as part of a feature change.
 - Any change to normalization or hashing must keep the Go and Python implementations in parity; update [`testdata/parity.json`](../testdata/parity.json) deliberately.
 
 To add a flag, follow the checklist at the end of [`docs/architecture.md`](../docs/architecture.md).
