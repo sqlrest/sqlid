@@ -13,3 +13,6 @@ config:
       settings:
         gosec:
           excludes: { add: [G401, G501] }
+
+soft-baseline:
+  yze/cliopinion: 3
