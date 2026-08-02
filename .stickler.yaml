@@ -14,5 +14,12 @@ config:
         gosec:
           excludes: { add: [G401, G501] }
 
+# `soft:` is what makes a rule non-gating; `soft-baseline:` is only the
+# per-rule ceiling APPLIED TO the rules named here. A baseline without a
+# matching soft entry is inert — the rule stays hard and fails on its first
+# finding whatever number is recorded beside it.
+soft:
+  - yze/cliopinion
+
 soft-baseline:
   yze/cliopinion: 3
