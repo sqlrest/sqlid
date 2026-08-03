@@ -10,13 +10,16 @@
 package identify
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/fs"
+	"log/slog"
 	"strings"
 
 	"github.com/sqlrest/sqlid"
 	"github.com/sqlrest/sqlid/internal/constants"
+	"github.com/sqlrest/sqlid/internal/domain"
 )
 
 // FileSystem abstracts the file operations the domain performs so they can be
@@ -37,10 +40,14 @@ type Output struct {
 	NameDisabled bool
 }
 
-// Config holds the resolved settings for one invocation: the normalization
-// toggles (negated flags), the output mode, and whether standard input should
-// be read.
+// Config holds the resolved settings and injected collaborators for one
+// invocation: the input stream, the file system, the normalization toggles
+// (negated flags), the output mode, and whether standard input should be read.
 type Config struct {
+	// Stdin is the input stream read when ShouldReadStdin is set.
+	Stdin io.Reader
+	// FS is the file system positional arguments are resolved against.
+	FS                  FileSystem
 	Output              Output
 	ShouldKeepCase      bool
 	UncommentDisabled   bool
@@ -53,7 +60,7 @@ type Config struct {
 }
 
 // options translates the configuration's toggles into normalization options.
-func (c Config) options() []sqlid.Option {
+func options(c Config) []sqlid.Option {
 	return []sqlid.Option{
 		sqlid.Lowercase(!c.ShouldKeepCase),
 		sqlid.Uncomment(!c.UncommentDisabled && !c.CompressDisabled),
@@ -64,9 +71,6 @@ func (c Config) options() []sqlid.Option {
 		sqlid.StripConstants(!c.ShouldKeepConst),
 	}
 }
-
-// argument is one positional CLI argument: a file path or literal SQL text.
-type argument string
 
 // position is an argument's zero-based place on the command line.
 type position int
@@ -89,32 +93,32 @@ type result struct {
 
 // fromArg resolves a positional argument to a file's contents or a literal SQL
 // string.
-func fromArg(filesys FileSystem, arg argument, index position) (statement, error) {
-	if info, err := filesys.Stat(string(arg)); err == nil && !info.IsDir() {
-		data, err := filesys.Read(string(arg))
+func fromArg(filesys FileSystem, arg domain.Argument, index position) (statement, error) {
+	if info, err := filesys.Stat(arg); err == nil && !info.IsDir() {
+		data, err := filesys.Read(arg)
 		if err != nil {
-			return statement{}, constants.ErrReadFile.With(nil, string(arg))
+			return statement{}, constants.ErrReadFile.With(nil, arg)
 		}
-		return statement{name: string(arg), sql: sqlid.Statement(data)}, nil
+		return statement{name: arg, sql: sqlid.Statement(data)}, nil
 	}
 	return statement{name: fmt.Sprintf("arg[%d]", int(index)), sql: sqlid.Statement(arg)}, nil
 }
 
 // collect gathers all inputs from positional arguments and, when the
-// configuration asks for it, standard input.
-func (c Config) collect(filesys FileSystem, args []string, stdin io.Reader) ([]statement, error) {
+// configuration asks for it, the configured standard input.
+func collect(cfg Config, args []domain.Argument) ([]statement, error) {
 	statements := make([]statement, 0, len(args)+1)
 	for index, arg := range args {
-		in, err := fromArg(filesys, argument(arg), position(index))
+		in, err := fromArg(cfg.FS, arg, position(index))
 		if err != nil {
 			return nil, err
 		}
 		statements = append(statements, in)
 	}
-	if !c.ShouldReadStdin {
+	if !cfg.ShouldReadStdin {
 		return statements, nil
 	}
-	data, err := io.ReadAll(stdin)
+	data, err := io.ReadAll(cfg.Stdin)
 	if err != nil {
 		return nil, constants.ErrReadStdin.With(err)
 	}
@@ -248,13 +252,17 @@ func join(lines []string) string {
 	return b.String()
 }
 
+// Result is the rendered output text: one line per non-blank input statement,
+// each terminated by a newline.
+type Result string
+
 // Run collects the inputs, computes and renders each statement, and returns the
-// combined text. It validates nothing beyond what collection requires and
-// delegates all SQL work to the sqlid library.
-func Run(cfg Config, filesys FileSystem, args []string, stdin io.Reader) (string, error) {
-	statements, err := cfg.collect(filesys, args, stdin)
+// combined text. It validates nothing beyond what collection requires,
+// delegates all SQL work to the sqlid library, and emits no log records.
+func Run(_ context.Context, _ *slog.Logger, cfg Config, args ...domain.Argument) (Result, error) {
+	statements, err := collect(cfg, args)
 	if err != nil {
 		return "", err
 	}
-	return join(render(statements, cfg.options(), cfg.Output)), nil
+	return Result(join(render(statements, options(cfg), cfg.Output))), nil
 }

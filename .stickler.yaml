@@ -31,6 +31,4 @@ soft-baseline:
   # enumdiscrim) await adjudication; rollout rules (errtest, errtested,
   # testfile, clidomain, cliflags, clilayout, fuzzreq, exhaustive) gate
   # again at zero.
-  yze/clidomain: 3
-  yze/cliflags: 18
   yze/fuzzreq: 1

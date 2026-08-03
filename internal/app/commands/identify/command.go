@@ -11,6 +11,7 @@ package identify
 import (
 	"context"
 	"io"
+	"log/slog"
 	"os"
 
 	"github.com/urfave/cli/v3"
@@ -29,21 +30,98 @@ type Version string
 
 func flags() []cli.Flag {
 	return []cli.Flag{
-		&cli.BoolFlag{Name: "id", Aliases: []string{"i"}, Usage: "only output the SQL ID"},
-		&cli.BoolFlag{Name: "hash", Aliases: []string{"a"}, Usage: "only output the SQL hash"},
-		&cli.StringFlag{Name: "format", Aliases: []string{"F"}, Usage: "format string of i,h,n,q,s characters"},
-		&cli.BoolFlag{Name: "tabs", Aliases: []string{"t"}, Usage: "separate fields with tabs"},
-		&cli.BoolFlag{Name: "verbose", Aliases: []string{"v"}, Usage: "also output the normalized SQL"},
-		&cli.BoolFlag{Name: "no-name", Aliases: []string{"N"}, Usage: "omit the input name"},
-		&cli.BoolFlag{Name: "case", Aliases: []string{"I"}, Usage: "keep case (do not lowercase)"},
-		&cli.BoolFlag{Name: "no-uncomment", Aliases: []string{"C"}, Usage: "keep comments"},
-		&cli.BoolFlag{Name: "no-compress", Aliases: []string{"Z"}, Usage: "do not compress whitespace or comments"},
-		&cli.BoolFlag{Name: "no-newline", Aliases: []string{"L"}, Usage: "do not append a trailing newline"},
-		&cli.BoolFlag{Name: "keep-with", Aliases: []string{"W"}, Usage: "keep WITH-clause aliases"},
-		&cli.BoolFlag{Name: "keep-const", Aliases: []string{"R"}, Usage: "keep string and numeric literals"},
-		&cli.BoolFlag{Name: "semicolon", Aliases: []string{"S"}, Usage: "keep a trailing semicolon"},
-		&cli.BoolFlag{Name: "no-stdin", Aliases: []string{"x"}, Usage: "do not read standard input"},
-		&cli.StringFlag{Name: "output", Aliases: []string{"o"}, Usage: "write output to a file instead of stdout"},
+		&cli.BoolFlag{
+			Name:    "id",
+			Aliases: []string{"i"},
+			Usage:   "only output the SQL ID",
+			Sources: cli.EnvVars("SQLID_ID"),
+		},
+		&cli.BoolFlag{
+			Name:    "hash",
+			Aliases: []string{"a"},
+			Usage:   "only output the SQL hash",
+			Sources: cli.EnvVars("SQLID_HASH"),
+		},
+		&cli.StringFlag{
+			Name:    "format",
+			Aliases: []string{"F"},
+			Usage:   "format string of i,h,n,q,s characters (empty renders the default columns)",
+			Sources: cli.EnvVars("SQLID_FORMAT"),
+			Value:   "",
+		},
+		&cli.BoolFlag{
+			Name:    "tabs",
+			Aliases: []string{"t"},
+			Usage:   "separate fields with tabs",
+			Sources: cli.EnvVars("SQLID_TABS"),
+		},
+		&cli.BoolFlag{
+			Name:    "verbose",
+			Aliases: []string{"v"},
+			Usage:   "also output the normalized SQL",
+			Sources: cli.EnvVars("SQLID_VERBOSE"),
+		},
+		&cli.BoolFlag{
+			Name:    "no-name",
+			Aliases: []string{"N"},
+			Usage:   "omit the input name",
+			Sources: cli.EnvVars("SQLID_NO_NAME"),
+		},
+		&cli.BoolFlag{
+			Name:    "case",
+			Aliases: []string{"I"},
+			Usage:   "keep case (do not lowercase)",
+			Sources: cli.EnvVars("SQLID_CASE"),
+		},
+		&cli.BoolFlag{
+			Name:    "no-uncomment",
+			Aliases: []string{"C"},
+			Usage:   "keep comments",
+			Sources: cli.EnvVars("SQLID_NO_UNCOMMENT"),
+		},
+		&cli.BoolFlag{
+			Name:    "no-compress",
+			Aliases: []string{"Z"},
+			Usage:   "do not compress whitespace or comments",
+			Sources: cli.EnvVars("SQLID_NO_COMPRESS"),
+		},
+		&cli.BoolFlag{
+			Name:    "no-newline",
+			Aliases: []string{"L"},
+			Usage:   "do not append a trailing newline",
+			Sources: cli.EnvVars("SQLID_NO_NEWLINE"),
+		},
+		&cli.BoolFlag{
+			Name:    "keep-with",
+			Aliases: []string{"W"},
+			Usage:   "keep WITH-clause aliases",
+			Sources: cli.EnvVars("SQLID_KEEP_WITH"),
+		},
+		&cli.BoolFlag{
+			Name:    "keep-const",
+			Aliases: []string{"R"},
+			Usage:   "keep string and numeric literals",
+			Sources: cli.EnvVars("SQLID_KEEP_CONST"),
+		},
+		&cli.BoolFlag{
+			Name:    "semicolon",
+			Aliases: []string{"S"},
+			Usage:   "keep a trailing semicolon",
+			Sources: cli.EnvVars("SQLID_SEMICOLON"),
+		},
+		&cli.BoolFlag{
+			Name:    "no-stdin",
+			Aliases: []string{"x"},
+			Usage:   "do not read standard input",
+			Sources: cli.EnvVars("SQLID_NO_STDIN"),
+		},
+		&cli.StringFlag{
+			Name:    "output",
+			Aliases: []string{"o"},
+			Usage:   "write output to a file instead of stdout (empty writes to stdout)",
+			Sources: cli.EnvVars("SQLID_OUTPUT"),
+			Value:   "",
+		},
 	}
 }
 
@@ -56,10 +134,13 @@ func isTerminal(reader io.Reader) bool {
 	return term.IsTerminal(int(file.Fd()))
 }
 
-// config builds the domain configuration from the parsed flags. Standard input
-// is read only when not disabled and not connected to a terminal.
-func config(cmd *cli.Command, stdin io.Reader) domain.Config {
+// config builds the domain configuration from the parsed flags and the injected
+// collaborators. Standard input is read only when not disabled and not
+// connected to a terminal.
+func config(cmd *cli.Command, filesys domain.FileSystem, stdin io.Reader) domain.Config {
 	return domain.Config{
+		Stdin:               stdin,
+		FS:                  filesys,
 		ShouldKeepCase:      cmd.Bool("case"),
 		UncommentDisabled:   cmd.Bool("no-uncomment"),
 		CompressDisabled:    cmd.Bool("no-compress"),
@@ -86,11 +167,19 @@ func osFS() domain.FileSystem {
 }
 
 // execute runs the CLI's work: render the inputs and write them to a file or stdout.
-func execute(cmd *cli.Command, filesys domain.FileSystem, stdin io.Reader, stdout io.Writer) error {
-	text, err := domain.Run(config(cmd, stdin), filesys, cmd.Args().Slice(), stdin)
+// The domain emits no log records, so the contract's logger is a discard logger.
+func execute(
+	ctx context.Context,
+	cmd *cli.Command,
+	filesys domain.FileSystem,
+	stdin io.Reader,
+	stdout io.Writer,
+) error {
+	result, err := domain.Run(ctx, slog.New(slog.DiscardHandler), config(cmd, filesys, stdin), cmd.Args().Slice()...)
 	if err != nil {
 		return err
 	}
+	text := string(result)
 	if path := cmd.String("output"); path != "" {
 		if writeErr := os.WriteFile(path, []byte(text), 0o600); writeErr != nil {
 			return constants.ErrWriteFile.With(writeErr, path)
@@ -115,8 +204,8 @@ func Command(version Version, stdin io.Reader, stdout, stderr io.Writer) *cli.Co
 		Writer:         stdout,
 		ErrWriter:      stderr,
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
-		Action: func(_ context.Context, cmd *cli.Command) error {
-			return execute(cmd, osFS(), stdin, stdout)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			return execute(ctx, cmd, osFS(), stdin, stdout)
 		},
 	}
 }

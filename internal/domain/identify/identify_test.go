@@ -1,9 +1,11 @@
 package identify
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -21,6 +23,17 @@ const (
 func realFS() FileSystem { return FileSystem{Stat: os.Stat, Read: os.ReadFile} }
 
 func empty() io.Reader { return strings.NewReader("") }
+
+// discard is the inert logger the Run contract requires; the domain never logs.
+func discard() *slog.Logger { return slog.New(slog.DiscardHandler) }
+
+// runDomain invokes Run with the contract plumbing filled in from the test case.
+func runDomain(cfg Config, filesys FileSystem, args []string, stdin io.Reader) (string, error) {
+	cfg.FS = filesys
+	cfg.Stdin = stdin
+	out, err := Run(context.Background(), discard(), cfg, args...)
+	return string(out), err
+}
 
 func TestRunOutputModes(t *testing.T) {
 	cases := []struct {
@@ -124,7 +137,7 @@ func TestRunOutputModes(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			out, err := Run(c.cfg, realFS(), c.args, c.stdin)
+			out, err := runDomain(c.cfg, realFS(), c.args, c.stdin)
 			if err != nil {
 				t.Fatalf("Run error = %v", err)
 			}
@@ -140,7 +153,7 @@ func TestRunReadsFileInput(t *testing.T) {
 	if err := os.WriteFile(path, []byte("select 1"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	out, err := Run(Config{}, realFS(), []string{path}, empty())
+	out, err := runDomain(Config{}, realFS(), []string{path}, empty())
 	if err != nil {
 		t.Fatalf("Run error = %v", err)
 	}
@@ -151,7 +164,7 @@ func TestRunReadsFileInput(t *testing.T) {
 
 func TestRunTreatsDirectoryAsLiteral(t *testing.T) {
 	dir := t.TempDir()
-	out, err := Run(Config{}, realFS(), []string{dir}, empty())
+	out, err := runDomain(Config{}, realFS(), []string{dir}, empty())
 	if err != nil {
 		t.Fatalf("Run error = %v", err)
 	}
@@ -161,7 +174,7 @@ func TestRunTreatsDirectoryAsLiteral(t *testing.T) {
 }
 
 func TestRunKeepConstChangesResult(t *testing.T) {
-	out, err := Run(
+	out, err := runDomain(
 		Config{ShouldKeepConst: true, Output: Output{IsIDOnly: true}},
 		realFS(),
 		[]string{"select 1"},
@@ -176,7 +189,7 @@ func TestRunKeepConstChangesResult(t *testing.T) {
 }
 
 func TestRunStdinReadError(t *testing.T) {
-	_, err := Run(Config{ShouldReadStdin: true}, realFS(), nil, failReader{})
+	_, err := runDomain(Config{ShouldReadStdin: true}, realFS(), nil, failReader{})
 	if !errors.Is(err, constants.ErrReadStdin) {
 		t.Errorf("error = %v, want %v", err, constants.ErrReadStdin)
 	}
@@ -187,7 +200,7 @@ func TestCollectPropagatesReadError(t *testing.T) {
 		Stat: func(string) (fs.FileInfo, error) { return fakeInfo{}, nil },
 		Read: func(string) ([]byte, error) { return nil, io.ErrUnexpectedEOF },
 	}
-	_, err := Config{}.collect(filesys, []string{"x"}, empty())
+	_, err := collect(Config{FS: filesys, Stdin: empty()}, []string{"x"})
 	if !errors.Is(err, constants.ErrReadFile) {
 		t.Errorf("error = %v, want %v", err, constants.ErrReadFile)
 	}
